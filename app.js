@@ -35,7 +35,7 @@ async function startMic(){try{audioCtx=new (window.AudioContext||window.webkitAu
 function stopMic(){if(rafId)cancelAnimationFrame(rafId);if(autoLogId)toggleAutoLog();if(micStream)micStream.getTracks().forEach(t=>t.stop());if(audioCtx)audioCtx.close();audioCtx=null;micStream=null;$("startMic").disabled=false;$("stopMic").disabled=true;$("captureBtn").disabled=true;$("autoLogBtn").disabled=true;if($("captureCalBtn"))$("captureCalBtn").disabled=true;$("micDot").classList.remove("on");$("micStatus").classList.add("hidden"); $("micStatus").textContent="";}
 function capture(){const peaks=freqData&&audioCtx?topPeaks(freqData,audioCtx.sampleRate,3):[];logs.push({time:new Date().toLocaleString("th-TH"),run:$("runInput").value||"Run 1",preset:$("preset").value,label:$("labelInput").value||"ไม่ระบุ",main:latest.main?latest.main.toFixed(1):"",fft:latest.fft?latest.fft.toFixed(1):"",auto:latest.auto?latest.auto.toFixed(1):"",period:latest.period?latest.period.toFixed(2):"",rms:latest.rms?latest.rms.toFixed(4):"",db:latest.db?latest.db.toFixed(1):"",zcr:latest.zcr?latest.zcr.toFixed(1):"",top1:peaks[0]?peaks[0].hz.toFixed(1):"",top2:peaks[1]?peaks[1].hz.toFixed(1):"",top3:peaks[2]?peaks[2].hz.toFixed(1):"",note:`min=${$("minFreq").value} max=${$("maxFreq").value} offset=${$("dbOffset").value}`});renderLog();}
 function renderLog(){const head=$("logHead"),body=$("logBody");head.innerHTML="";exportCols.forEach(c=>{const th=document.createElement("th");th.textContent=colNames[c];head.appendChild(th);});body.innerHTML="";logs.forEach(r=>{const tr=document.createElement("tr");exportCols.forEach(c=>{const td=document.createElement("td");td.textContent=r[c]??"";tr.appendChild(td);});body.appendChild(tr);});}
-function downloadCsv(){const csv=[exportCols.map(c=>colNames[c]),...logs.map(r=>exportCols.map(c=>r[c]??""))].map(row=>row.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download="PhySound_AcousticsPro_Data.csv";a.click();URL.revokeObjectURL(url);}
+function downloadCsv(){const csv=[exportCols.map(c=>colNames[c]),...logs.map(r=>exportCols.map(c=>r[c]??""))].map(row=>row.map(v=>`"${String(v).replaceAll('"','""')}"`).join(",")).join("\n");const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"}),url=URL.createObjectURL(blob),a=document.createElement("a");a.href=url;a.download=makeTopicFileName("Data", "csv");a.click();URL.revokeObjectURL(url);}
 
 function downloadExcel(){
   const headers = exportCols.map(c=>colNames[c]);
@@ -50,7 +50,7 @@ function downloadExcel(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'PhySound_Raw_Data.xls';
+  a.download = makeTopicFileName('Raw_Data', 'xls');
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -149,7 +149,7 @@ function loadSettings(){try{const s=JSON.parse(localStorage.getItem("physound-se
 function resetSettings(){localStorage.removeItem("physound-settings");location.reload();}
 function copyConfig(){const keys=["preset","minFreq","maxFreq","dbOffset","dbMode","fftSize","smoothing"];const q=new URLSearchParams(Object.fromEntries(keys.filter(k=>$(k)).map(k=>[k,$(k).value]))).toString();navigator.clipboard?.writeText(location.origin+location.pathname+"#"+q);alert("คัดลอก Config Link แล้ว");}
 function readConfig(){if(location.hash.length>1){const q=new URLSearchParams(location.hash.slice(1));q.forEach((v,k)=>{if($(k))$(k).value=v;});}}
-function saveGraphs(){["scope","spectrum","spectrogram","history"].forEach(n=>{const c=canvases[n];if(!c)return;const a=document.createElement("a");a.href=c.toDataURL("image/png");a.download=`PhySound_${n}.png`;a.click();});}
+function saveGraphs(){["scope","spectrum","spectrogram","history"].forEach(n=>{const c=canvases[n];if(!c)return;const a=document.createElement("a");a.href=c.toDataURL("image/png");a.download=makeTopicFileName(n, "png");a.click();});}
 let toneCtx,toneOsc,toneGain,noiseCtx,noiseSrc,noiseGain,beatCtx,beatOsc1,beatOsc2,beatGain;
 function playTone(){stopTone();toneCtx=new (window.AudioContext||window.webkitAudioContext)();toneOsc=toneCtx.createOscillator();toneGain=toneCtx.createGain();toneOsc.type=$("toneType").value;toneOsc.frequency.value=Number($("toneFreq").value||440);toneGain.gain.value=Number($("toneVol").value||.06);toneOsc.connect(toneGain);toneGain.connect(toneCtx.destination);toneOsc.start();}
 function stopTone(){if(toneCtx)toneCtx.close();toneCtx=toneOsc=toneGain=null;}
@@ -690,23 +690,20 @@ function drawPressureWaveFinal(ctx, c, p, w, h){
   const wavelengthPx = 270;
   const k = 2 * Math.PI / wavelengthPx;
 
-  // Split layout in the v5.67-style canvas
   const titleY = 34;
   const arrowY = 78;
   const particleTop = 116;
   const particleAxisY = Math.round(h * 0.52);
-  const particleBottom = particleAxisY - 26;
+  const particleBottom = particleAxisY - 24;
   const curveTop = particleAxisY + 72;
   const curveBottom = h - 52;
   const curveMid = (curveTop + curveBottom) / 2;
   const curveAmp = Math.max(42, (curveBottom - curveTop) * 0.40);
 
-  // Speaker/source
   const speakerX = Math.max(66, xMin - 94);
   const speakerY = (particleTop + particleBottom) / 2;
   drawSpeaker(ctx, speakerX, speakerY, 1.12);
 
-  // Title
   ctx.fillStyle="#cfe9ff";
   ctx.font="20px Sarabun, system-ui, sans-serif";
   ctx.textAlign="left";
@@ -732,29 +729,29 @@ function drawPressureWaveFinal(ctx, c, p, w, h){
   ctx.fillText("ทิศทางการเคลื่อนที่ของคลื่น", w*0.57, arrowY-16);
   ctx.restore();
 
-  // Shared observation line
-  ctx.save();
-  ctx.strokeStyle="rgba(255,83,128,.90)";
-  ctx.setLineDash([8,8]);
-  ctx.lineWidth=2;
-  ctx.beginPath();
-  ctx.moveTo(obsXBase, particleTop - 20);
-  ctx.lineTo(obsXBase, curveBottom + 4);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle="rgba(255,230,235,.96)";
-  ctx.font="15px Sarabun, system-ui, sans-serif";
-  ctx.textAlign="center";
-  ctx.fillText("จุดสังเกต", obsXBase, particleTop-26);
-  ctx.restore();
-
-  // Physics mapping:
-  // ΔP(x,t) ∝ cos(kx - ωt)
-  // Positive pressure = อัด / Compression / dense particles
-  // Negative pressure = ขยาย / Rarefaction / sparse particles
+  // Same physical function for particle density and pressure graph.
+  // +ΔP = ส่วนอัด (Compression), -ΔP = ส่วนขยาย (Rarefaction)
   const pressureAt = (x)=>Math.cos(k*(x-obsXBase)-phase);
 
-  // Soft high/low pressure glow bands generated from the same pressure function.
+  // Particle field frame, so the upper graph is clearly visible.
+  ctx.save();
+  const fieldPad = 12;
+  const fieldX0 = xMin-24;
+  const fieldY0 = particleTop-18;
+  const fieldW = xMax - xMin + 48;
+  const fieldH = particleBottom - particleTop + 36;
+  const fieldGrad = ctx.createLinearGradient(fieldX0, fieldY0, fieldX0, fieldY0+fieldH);
+  fieldGrad.addColorStop(0,"rgba(4,18,42,.78)");
+  fieldGrad.addColorStop(1,"rgba(2,8,24,.28)");
+  ctx.fillStyle = fieldGrad;
+  ctx.strokeStyle = "rgba(95,185,255,.28)";
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, fieldX0, fieldY0, fieldW, fieldH, 18);
+  ctx.fill();
+  ctx.stroke();
+  ctx.restore();
+
+  // Pressure glow bands generated from pressureAt(x).
   ctx.save();
   for(let x=xMin; x<=xMax; x+=6){
     const pr = pressureAt(x);
@@ -762,11 +759,11 @@ function drawPressureWaveFinal(ctx, c, p, w, h){
     const g = ctx.createLinearGradient(x-18,0,x+18,0);
     if(pr >= 0){
       g.addColorStop(0,"rgba(0,0,0,0)");
-      g.addColorStop(.5,`rgba(34,211,238,${0.035 + 0.12*alpha})`);
+      g.addColorStop(.5,`rgba(34,211,238,${0.06 + 0.18*alpha})`);
       g.addColorStop(1,"rgba(0,0,0,0)");
     }else{
       g.addColorStop(0,"rgba(0,0,0,0)");
-      g.addColorStop(.5,`rgba(168,85,247,${0.03 + 0.10*alpha})`);
+      g.addColorStop(.5,`rgba(168,85,247,${0.05 + 0.15*alpha})`);
       g.addColorStop(1,"rgba(0,0,0,0)");
     }
     ctx.fillStyle=g;
@@ -774,90 +771,97 @@ function drawPressureWaveFinal(ctx, c, p, w, h){
   }
   ctx.restore();
 
-  // Natural particle cloud:
-  // fixed pseudo-random seed per coordinate so the page animates smoothly without jitter.
+  // Visible natural particle cloud.
   const particleHeight = particleBottom - particleTop;
-  const densityXGap = Math.max(8.0, Math.min(11.5, w * 0.0105));
-  const densityYGap = Math.max(8.0, Math.min(11.0, particleHeight / 13));
-  const particleR = Math.max(1.7, Math.min(3.1, w * 0.0030));
-  const displacementAmpPx = 10.0 * p.A;
+  const densityXGap = Math.max(12, Math.min(17, w * 0.014));
+  const densityYGap = Math.max(10, Math.min(14, particleHeight / 10));
+  const particleR = Math.max(3.4, Math.min(5.0, w * 0.0048));
+  const displacementAmpPx = 9.5 * p.A;
+  const obsParticleY = (particleTop + particleBottom) / 2;
 
   function pseudoRand(a,b){
     return Math.abs(Math.sin(a*12.9898 + b*78.233) * 43758.5453) % 1;
   }
-  function drawTinyParticle(x,y,r,hot){
+  function drawVisibleParticle(x,y,r,pr,col,row){
+    // Strong, visible dot with glow.
+    const hot = pr >= 0;
+    ctx.save();
+    ctx.shadowColor = hot ? "rgba(76,210,255,.72)" : "rgba(170,110,255,.48)";
+    ctx.shadowBlur = hot ? 8 : 6;
     const grad=ctx.createRadialGradient(x-r*.35,y-r*.45,r*.15,x,y,r);
     if(hot){
       grad.addColorStop(0,"rgba(255,255,255,.98)");
-      grad.addColorStop(.45,"rgba(142,235,255,.95)");
-      grad.addColorStop(1,"rgba(20,155,255,.76)");
+      grad.addColorStop(.45,"rgba(140,238,255,.96)");
+      grad.addColorStop(1,"rgba(22,150,255,.86)");
     }else{
-      grad.addColorStop(0,"rgba(255,255,255,.88)");
-      grad.addColorStop(.55,"rgba(120,220,255,.72)");
-      grad.addColorStop(1,"rgba(30,110,210,.50)");
+      grad.addColorStop(0,"rgba(235,250,255,.94)");
+      grad.addColorStop(.55,"rgba(120,220,255,.80)");
+      grad.addColorStop(1,"rgba(46,125,225,.62)");
     }
     ctx.fillStyle=grad;
     ctx.beginPath();
     ctx.arc(x,y,r,0,Math.PI*2);
     ctx.fill();
+    ctx.restore();
   }
 
-  let obsParticleY = (particleTop + particleBottom) / 2;
-  for(let yy=particleTop+8, row=0; yy<=particleBottom-8; yy+=densityYGap, row++){
-    for(let base=xMin+8, col=0; base<=xMax-6; base+=densityXGap, col++){
+  for(let yy=particleTop+10, row=0; yy<=particleBottom-8; yy+=densityYGap, row++){
+    for(let base=xMin+10, col=0; base<=xMax-8; base+=densityXGap, col++){
       const pr = pressureAt(base);
-      // More dots in compression, fewer in expansion.
-      const keepProbability = 0.44 + 0.44 * ((pr + 1) / 2);
-      const r0 = pseudoRand(col,row);
-      if(r0 > keepProbability) continue;
+      // More dots at compression, but still keep enough dots at expansion so the graph is visible.
+      const keepProbability = 0.72 + 0.22 * ((pr + 1) / 2);
+      if(pseudoRand(col,row) > keepProbability) continue;
 
-      // Smooth longitudinal displacement; sign chosen so dense region aligns with +ΔP.
+      // Sign makes dense zone align with +ΔP.
       const displacement = -displacementAmpPx * Math.sin(k*(base-obsXBase)-phase);
-
-      const jitterX = (pseudoRand(col+91,row+7)-0.5) * densityXGap * 0.78;
-      const jitterY = (pseudoRand(col+17,row+83)-0.5) * densityYGap * 0.78;
+      const jitterX = (pseudoRand(col+91,row+7)-0.5) * densityXGap * 0.70;
+      const jitterY = (pseudoRand(col+17,row+83)-0.5) * densityYGap * 0.70;
       const x = base + displacement + jitterX;
       const y = yy + jitterY;
 
-      // Leave a small space for the red observation marker.
-      if(Math.abs(x-obsXBase) < 5 && Math.abs(y-obsParticleY) < 9) continue;
+      if(Math.abs(x-obsXBase) < 6.5 && Math.abs(y-obsParticleY) < 10) continue;
 
-      const localR = particleR * (0.86 + 0.34 * ((pr + 1) / 2)) * (0.85 + pseudoRand(col+3,row+11)*0.35);
-      drawTinyParticle(x,y,localR,pr>0);
+      const localR = particleR * (0.92 + 0.22 * ((pr + 1) / 2)) * (0.88 + pseudoRand(col+3,row+11)*0.28);
+      drawVisibleParticle(x,y,localR,pr,col,row);
     }
   }
 
-  // Observation particle: fixed at the shared x so it can be compared with pressure graph.
+  // Shared observation line above both graphs.
   ctx.save();
-  drawParticleShadow(ctx,obsXBase,obsParticleY,7.5);
-  drawParticleSphere(ctx,obsXBase,obsParticleY,7.5,"red");
+  ctx.strokeStyle="rgba(255,83,128,.92)";
+  ctx.setLineDash([8,8]);
+  ctx.lineWidth=2;
+  ctx.beginPath();
+  ctx.moveTo(obsXBase, particleTop - 20);
+  ctx.lineTo(obsXBase, curveBottom + 4);
+  ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle="rgba(255,230,235,.98)";
+  ctx.font="15px Sarabun, system-ui, sans-serif";
+  ctx.textAlign="center";
+  ctx.fillText("จุดสังเกต", obsXBase, particleTop-26);
   ctx.restore();
 
-  // Natural labels: อัด / Compression and ขยาย / Rarefaction
+  // Red observation particle.
+  ctx.save();
+  drawParticleShadow(ctx,obsXBase,obsParticleY,8.5);
+  drawParticleSphere(ctx,obsXBase,obsParticleY,8.5,"red");
+  ctx.restore();
+
+  // Labels: use requested terms.
   ctx.save();
   ctx.font="bold 14px Sarabun, system-ui, sans-serif";
   ctx.textAlign="center";
-  // Pick the nearest visible compression/rarefaction zones to label.
-  const labelY = particleTop - 5;
+  const labelY = particleTop - 4;
   const compressionX = obsXBase;
   const rarefactionX = obsXBase + wavelengthPx/2;
   if(compressionX > xMin+40 && compressionX < xMax-40){
-    ctx.strokeStyle="rgba(34,211,238,.90)";
-    ctx.fillStyle="rgba(80,235,255,.96)";
-    ctx.beginPath();
-    ctx.moveTo(compressionX-72,labelY+8);
-    ctx.lineTo(compressionX+72,labelY+8);
-    ctx.stroke();
-    ctx.fillText("อัด (Compression)", compressionX, labelY);
+    ctx.fillStyle="rgba(80,235,255,.98)";
+    ctx.fillText("ส่วนอัด (Compression)", compressionX, labelY);
   }
   if(rarefactionX > xMin+40 && rarefactionX < xMax-40){
-    ctx.strokeStyle="rgba(210,120,255,.88)";
-    ctx.fillStyle="rgba(220,150,255,.96)";
-    ctx.beginPath();
-    ctx.moveTo(rarefactionX-72,labelY+8);
-    ctx.lineTo(rarefactionX+72,labelY+8);
-    ctx.stroke();
-    ctx.fillText("ขยาย (Rarefaction)", rarefactionX, labelY);
+    ctx.fillStyle="rgba(220,150,255,.98)";
+    ctx.fillText("ส่วนขยาย (Rarefaction)", rarefactionX, labelY);
   }
   ctx.restore();
 
@@ -893,7 +897,6 @@ function drawPressureWaveFinal(ctx, c, p, w, h){
   ctx.fillStyle="rgba(255,255,255,.96)";
   ctx.lineWidth=2;
 
-  // x-axis
   ctx.beginPath();
   ctx.moveTo(xMin-34, curveMid);
   ctx.lineTo(w-46, curveMid);
@@ -905,7 +908,6 @@ function drawPressureWaveFinal(ctx, c, p, w, h){
   ctx.lineTo(w-61, curveMid+9);
   ctx.stroke();
 
-  // ΔP axis
   ctx.beginPath();
   ctx.moveTo(xMin-34, curveBottom);
   ctx.lineTo(xMin-34, curveTop);
@@ -917,7 +919,6 @@ function drawPressureWaveFinal(ctx, c, p, w, h){
   ctx.lineTo(xMin-25, curveTop+15);
   ctx.stroke();
 
-  // zero dashed line
   ctx.save();
   ctx.strokeStyle="rgba(255,255,255,.62)";
   ctx.setLineDash([6,7]);
@@ -927,7 +928,6 @@ function drawPressureWaveFinal(ctx, c, p, w, h){
   ctx.stroke();
   ctx.restore();
 
-  // ticks
   for(let i=0;i<7;i++){
     const tx=(xMin-30)+i*((w-xMin-50)/(6));
     ctx.beginPath();
@@ -962,7 +962,7 @@ function drawPressureWaveFinal(ctx, c, p, w, h){
   ctx.fillText("ต่ำ", xMin-85, curveBottom+4);
   ctx.restore();
 
-  // Pressure curve: same pressureAt(x) as particle density above.
+  // Pressure curve uses same pressureAt(x) as the particle density above.
   const pts=[];
   for(let x=xMin; x<=xMax; x+=4){
     const y = curveMid - pressureAt(x) * curveAmp;
@@ -978,7 +978,7 @@ function drawPressureWaveFinal(ctx, c, p, w, h){
   ctx.stroke();
   ctx.restore();
 
-  // Red pressure marker: same x as the red particle marker above.
+  // Red pressure marker linked to upper red particle.
   const graphMarkerX = obsXBase;
   const graphMarkerY = curveMid - pressureAt(graphMarkerX) * curveAmp;
   ctx.save();
@@ -1245,7 +1245,7 @@ function initVisualizer(){
     const c=$("visualizerCanvas");
     const a=document.createElement("a");
     a.href=c.toDataURL("image/png");
-    a.download="MelodyLab_Wave_Visualizer.png";
+    a.download=makeTopicFileName("Image", "png");
     a.click();
   };
   if(vizState.raf) cancelAnimationFrame(vizState.raf);
@@ -1259,14 +1259,38 @@ document.addEventListener("DOMContentLoaded",init);
 
 /* v5.10 local export per experiment page */
 const localPageLogs = {};
-function getActiveExperimentName(){
+function getActiveTopicTitle(){
+  const activeTitle = document.querySelector("section.activeDetail h2")?.textContent?.trim();
+  if(activeTitle) return activeTitle;
+  const brandTitle = document.querySelector(".detailNav .brand span")?.textContent?.trim();
+  if(brandTitle) return brandTitle;
   const card = document.querySelector(".localExportCard[data-export-name]");
   if(card?.dataset?.exportName) return card.dataset.exportName;
-  const main = document.querySelector("main.detailMain");
-  if(main?.dataset?.current) return main.dataset.current;
-  const sec = document.querySelector("section.activeDetail");
-  if(sec?.id) return sec.id;
-  return document.title || "experiment";
+  return document.title || "MelodyLab";
+}
+function safeFileNamePart(text){
+  return String(text || "MelodyLab")
+    .normalize("NFC")
+    .replace(/[\\/:*?"<>|]/g, "")
+    .replace(/[\u0000-\u001f\u007f]/g, "")
+    .replace(/[()\[\]{}]/g, "")
+    .replace(/\s+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .slice(0, 90) || "MelodyLab";
+}
+function fileTimestamp(){
+  const d = new Date();
+  const pad = n => String(n).padStart(2, "0");
+  return `${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+function makeTopicFileName(kind, ext){
+  const topic = safeFileNamePart(getActiveTopicTitle());
+  const suffix = kind ? "_" + safeFileNamePart(kind) : "";
+  return `${topic}${suffix}_${fileTimestamp()}.${ext}`;
+}
+function getActiveExperimentName(){
+  return getActiveTopicTitle();
 }
 function getLocalPageSnapshot(){
   const page = getActiveExperimentName();
@@ -1371,7 +1395,7 @@ function downloadLocalPageCsv(){
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = `MelodyLab_${String(page).replaceAll(" ","_")}_Data.csv`;
+  a.download = makeTopicFileName("Data", "csv");
   a.click();
   URL.revokeObjectURL(url);
 }
